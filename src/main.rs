@@ -6,13 +6,14 @@ use splash::SplashExtensions;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 enum AppState {
-  Splash,
   #[default]
+  Splash,
   Menu,
   Game,
 }
 
-//mod game;
+mod game;
+mod loading;
 mod menu;
 mod splash;
 
@@ -25,6 +26,5 @@ fn main() {
     .add_state::<AppState>()
     .add_splash_screen(AppState::Splash, AppState::Menu)
     .add_main_menu(AppState::Menu, AppState::Game)
-    //.jam(AppState::Game, AppState::Menu)
     .run();
 }

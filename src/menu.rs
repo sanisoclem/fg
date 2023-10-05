@@ -9,6 +9,12 @@ enum MenuState {
   #[default]
   Disabled,
 }
+// TODO:
+//   - show list of modules
+//   - register modules in manager after selecting modules
+//   - clicking new game should send init game control command
+//   - once GameState::Initialized is reached, show game modes
+//   - when a mode is picked, send NewGame and transition to next_state
 
 #[derive(Resource)]
 struct MenuNextState<T>(T);
@@ -91,7 +97,6 @@ fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
 }
 
 fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-  let font = asset_server.load("fonts/FiraSans-Bold.ttf");
   commands.spawn((
     Camera3dBundle {
       transform: Transform::from_xyz(-2.0, 4.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -131,9 +136,9 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ..default()
   };
   let button_text_style = TextStyle {
-    font: font.clone(),
     font_size: 40.0,
     color: TEXT_COLOR,
+    ..default()
   };
 
   commands
@@ -167,9 +172,9 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBundle::from_section(
               "Name TBD",
               TextStyle {
-                font: font.clone(),
                 font_size: 80.0,
                 color: TEXT_COLOR,
+                ..default()
               },
             )
             .with_style(Style {

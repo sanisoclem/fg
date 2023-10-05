@@ -3,6 +3,10 @@ use utils::despawn_screen;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
+// TODO:
+//  - enumerate modules
+//  - preload assets for menus
+
 pub trait SplashExtensions {
   fn add_splash_screen<T: States + Copy>(&mut self, show_on_state: T, next_state: T) -> &mut Self;
 }
@@ -56,7 +60,7 @@ fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
       });
       parent.spawn(
         TextBundle::from_section(
-          "Bevy Game Jam #3",
+          "FG",
           TextStyle {
             font: font.clone(),
             font_size: 80.0,
