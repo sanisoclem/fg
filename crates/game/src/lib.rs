@@ -1,113 +1,139 @@
-use std::default;
-
 use bevy::prelude::*;
 
-#[derive(Resource)]
-struct GameNextState<T>(T);
-pub trait GameExtensions {
-  fn add_game<T: States>(&mut self, game_state: T, exit_state: T) -> &mut Self;
+pub trait GameEngineExtensions {
+  fn add_game_engine(&mut self) -> &mut Self;
 }
 
-impl GameExtensions for App {
-  fn add_game<T: States>(&mut self, _game_state: T, _exit_state: T) -> &mut Self {
+impl GameEngineExtensions for App {
+  fn add_game_engine(&mut self) -> &mut Self {
     self
-      .add_state::<GameState>()
+      .add_state::<SimulationState>()
       .init_resource::<ModuleManager>()
       .init_resource::<GameSession>()
       .add_event::<GameControlCommand>()
+      .add_systems(Update, process_game_control_commands)
   }
 }
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-pub enum GameState {
+pub enum SimulationState {
   #[default]
-  Disabled, // no game systems running
-  Initialized, // modules have been initialized
-  Loading,     //
-  Started,     // game is ongoing
+  Disabled,
+  Ready,
+  Loading,
+  Simulating,
 }
 
 #[derive(Event)]
 pub enum GameControlCommand {
-  Init, // initializes the game session using the registered modules
+  Reset,
   NewGame(GameModeDescriptor),
-  JoinGame(PlayerDescriptor),
-  LeaveGame(PlayerDescriptor),
-  ExitGame,
-  Teardown, // destroys the session
+  // JoinGame(PlayerDescriptor),
+  // LeaveGame(PlayerDescriptor),
+  // ExitGame,
+  // Teardown, // destroys the session
 }
 
 #[derive(Default, Resource)]
-pub struct ModuleManager;
+pub struct ModuleManager {
+  modules: Vec<GameModuleDescriptor>,
+}
 
 impl ModuleManager {
-  pub fn clear(&mut self) {
-    unimplemented!()
+  pub fn clear(&mut self) -> &mut Self {
+    self.modules.clear();
+    self
   }
-  pub fn register(&mut self, _module: GameModuleDescriptor) {
-    unimplemented!()
+
+  pub fn register(&mut self, module: GameModuleDescriptor) -> &mut Self {
+    self.modules.push(module);
+    self
   }
-  pub fn create_session(&self) -> GameSession {
-    unimplemented!()
+
+  pub fn run_init(&self, session: &mut GameSession) {
+    for module in self.modules.iter() {
+      match module {
+        GameModuleDescriptor::Native(native_mod) => {
+          (native_mod.on_init)(session);
+        }
+        _ => {
+          unimplemented!()
+        }
+      }
+    }
   }
 }
 
 #[derive(Default, Resource)]
-pub struct GameSession;
+pub struct GameSession {
+  modes: Vec<GameModeDescriptor>,
+}
 
 impl GameSession {
+  pub fn reset(&mut self) {
+    self.modes.clear();
+  }
   pub fn get_modes(&self) -> &[GameModeDescriptor] {
-    unimplemented!()
+    &self.modes
   }
-  pub fn new_game(&self) -> GameInstance {
-    unimplemented!()
-  }
-}
 
-#[derive(Default, Resource)]
-pub struct GameInstance;
-
-impl GameInstance {
-  pub fn join(&mut self, _player: PlayerDescriptor) {
-    unimplemented!()
+  pub fn add_mode(&mut self, mode: GameModeDescriptor) {
+    self.modes.push(mode);
   }
 }
 
-pub struct GameModuleDescriptor;
+#[derive(Clone)]
+pub enum GameModuleDescriptor {
+  Native(NativeGameModule),
+  Script(ScriptGameModule),
+}
+
+#[derive(Clone)]
+pub struct NativeGameModule {
+  pub on_init: fn(&mut GameSession) -> (),
+}
+
+#[derive(Clone)]
+pub struct ScriptGameModule;
+
+#[derive(Clone)]
 pub struct GameModeDescriptor;
+
 pub struct PlayerDescriptor;
 
-// // TODO: traits are placeholders, replace with structs
-// pub trait GameSessionManager {
-//   fn clear_modules(&mut self);
-//   fn register_game_module(&mut self, module: GameModuleDescriptor);
-//   fn create_session(self) -> dyn GameSession;
-// }
+#[derive(Component)]
+pub struct GameSessionComponent;
 
-// pub trait GameSession {
-//   fn get_modes(&self) -> [GameModeDescriptor];
-//   fn new_game(self, mode: &GameModeDescriptor) -> dyn GameInstance;
-//   fn load_game(self, data: SaveData) -> dyn GameInstance;
-// }
+fn process_game_control_commands(
+  mut commands: Commands,
+  mut cmds: EventReader<GameControlCommand>,
+  mut session: ResMut<GameSession>,
+  mut next_sim_state: ResMut<NextState<SimulationState>>,
 
-// pub trait GameInstance {
-//   fn join(&mut self, player: PlayerDescriptor);
-// }
+  all_session_entities: Query<Entity, With<GameSessionComponent>>,
+  mod_mgr: Res<ModuleManager>,
+) {
+  for cmd in cmds.iter() {
+    match cmd {
+      GameControlCommand::Reset => {
+        // despawn all entities if any
+        for entity in &all_session_entities {
+          commands.entity(entity).despawn_recursive();
+        }
 
-// // pub struct SessionSettings {
-// //   pub name: String,
-// //   pub seed: [u8; 16],
-// //   pub engine_version: u32,
-// // }
+        // clear all session dictionaries
+        session.reset();
 
-// // pub struct GameSave {
-// //   pub session_id: String,
-// //   pub settings: SessionSettings,
-// //   pub modules: Vec<GameModuleId>
-// // }
+        // re-initialize all modules
+        mod_mgr.run_init(&mut session);
 
-// // pub struct GameModuleId(String, u32);
-// // pub struct GameModuleMetadata {
-// //   pub id: GameModuleId,
-// //   pub name: String
-// // }
+        // signal that session is ready
+        next_sim_state.set(SimulationState::Ready);
+      },
+      GameControlCommand::NewGame(mode) => {
+
+      },
+      _ => {}
+    }
+  }
+}

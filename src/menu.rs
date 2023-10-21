@@ -30,7 +30,6 @@ impl MenuExtensions for App {
       .insert_resource(MenuNextState(next_state))
       .add_systems(OnEnter(show_on_state), menu_setup)
       .add_systems(OnEnter(MenuState::Main), main_menu_setup)
-      .add_systems(Update, rotate_cam.run_if(in_state(show_on_state)))
       .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
       .add_systems(
         Update,
@@ -105,14 +104,6 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         order: 0,
         ..default()
       },
-      ..default()
-    },
-    OnMainMenuScreen,
-  ));
-
-  commands.spawn((
-    SceneBundle {
-      scene: asset_server.load("ship.gltf#Scene0"),
       ..default()
     },
     OnMainMenuScreen,
@@ -232,13 +223,4 @@ fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             });
         });
     });
-}
-
-fn rotate_cam(time: Res<Time>, mut query: Query<&mut Transform, With<Camera>>) {
-  for mut transform in &mut query {
-    transform.rotate_around(
-      Vec3::ZERO,
-      Quat::from_axis_angle(Vec3::Y, 0.55 * time.delta_seconds()),
-    );
-  }
 }
