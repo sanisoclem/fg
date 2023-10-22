@@ -1,15 +1,10 @@
 use bevy::{app::AppExit, prelude::*};
+use fg_game::{GameControlCommand, GameModeDescriptor};
 use utils::despawn_screen;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum MenuState {
-  Main,
-  #[default]
-  Disabled,
-}
-// TODO:
+// TODO: next iteration could be
 //   - show list of modules
 //   - register modules in manager after selecting modules
 //   - clicking new game should send init game control command
@@ -26,11 +21,9 @@ pub trait MenuExtensions {
 impl MenuExtensions for App {
   fn add_main_menu<T: States + Copy>(&mut self, show_on_state: T, next_state: T) -> &mut Self {
     self
-      .add_state::<MenuState>()
       .insert_resource(MenuNextState(next_state))
-      .add_systems(OnEnter(show_on_state), menu_setup)
-      .add_systems(OnEnter(MenuState::Main), main_menu_setup)
-      .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
+      .add_systems(OnEnter(show_on_state), main_menu_setup)
+      .add_systems(OnExit(show_on_state), despawn_screen::<OnMainMenuScreen>)
       .add_systems(
         Update,
         (menu_action::<T>, button_system).run_if(in_state(show_on_state)),
@@ -41,8 +34,8 @@ impl MenuExtensions for App {
 fn menu_action<T: States>(
   interaction_query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
   mut app_exit_events: EventWriter<AppExit>,
-  mut menu_state: ResMut<NextState<MenuState>>,
-  mut game_state: ResMut<NextState<T>>,
+  mut app_state: ResMut<NextState<T>>,
+  mut game_control_commands: EventWriter<GameControlCommand>,
   next_state: Res<MenuNextState<T>>,
 ) {
   for (interaction, menu_button_action) in &interaction_query {
@@ -50,8 +43,9 @@ fn menu_action<T: States>(
       match menu_button_action {
         MenuButtonAction::Quit => app_exit_events.send(AppExit),
         MenuButtonAction::Play => {
-          game_state.set(next_state.0.clone());
-          menu_state.set(MenuState::Disabled);
+          // TODO: get game mode descriptor from GameSession
+          game_control_commands.send(GameControlCommand::NewGame(GameModeDescriptor));
+          app_state.set(next_state.0.clone());
         }
       }
     }
@@ -89,10 +83,6 @@ fn button_system(
       (Interaction::None, None) => NORMAL_BUTTON.into(),
     }
   }
-}
-
-fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
-  menu_state.set(MenuState::Main);
 }
 
 fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {

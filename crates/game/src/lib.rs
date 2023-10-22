@@ -24,14 +24,14 @@ pub enum SimulationState {
   Simulating,
 }
 
-#[derive(Event)]
+#[derive(Event, Debug)]
 pub enum GameControlCommand {
   Reset,
   NewGame(GameModeDescriptor),
-  // JoinGame(PlayerDescriptor),
-  // LeaveGame(PlayerDescriptor),
-  // ExitGame,
-  // Teardown, // destroys the session
+  Pause,
+  Unpause,
+  JoinGame(PlayerDescriptor),
+  LeaveGame(PlayerDescriptor),
 }
 
 #[derive(Default, Resource)]
@@ -96,9 +96,10 @@ pub struct NativeGameModule {
 #[derive(Clone)]
 pub struct ScriptGameModule;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GameModeDescriptor;
 
+#[derive(Debug)]
 pub struct PlayerDescriptor;
 
 #[derive(Component)]
@@ -130,10 +131,12 @@ fn process_game_control_commands(
         // signal that session is ready
         next_sim_state.set(SimulationState::Ready);
       },
-      GameControlCommand::NewGame(mode) => {
+      GameControlCommand::NewGame(_mode) => {
 
       },
-      _ => {}
+      _ => {
+        unimplemented!()
+      }
     }
   }
 }

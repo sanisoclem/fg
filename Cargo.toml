@@ -7,6 +7,7 @@ edition = "2021"
 bevy = { workspace = true }
 fg_game = { path = "crates/game", version = "0.1.0" }
 fg_base = { path = "crates/base", version = "0.1.0" }
+fg_interface = { path = "crates/interface", version = "0.1.0" }
 utils = { path = "crates/utils", version = "0.1.0" }
 
 [workspace]
