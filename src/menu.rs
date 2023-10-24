@@ -1,5 +1,4 @@
 use bevy::{app::AppExit, prelude::*};
-use fg_game::{GameControlCommand, GameModeDescriptor};
 use utils::despawn_screen;
 
 const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
@@ -35,7 +34,6 @@ fn menu_action<T: States>(
   interaction_query: Query<(&Interaction, &MenuButtonAction), (Changed<Interaction>, With<Button>)>,
   mut app_exit_events: EventWriter<AppExit>,
   mut app_state: ResMut<NextState<T>>,
-  mut game_control_commands: EventWriter<GameControlCommand>,
   next_state: Res<MenuNextState<T>>,
 ) {
   for (interaction, menu_button_action) in &interaction_query {
@@ -43,8 +41,6 @@ fn menu_action<T: States>(
       match menu_button_action {
         MenuButtonAction::Quit => app_exit_events.send(AppExit),
         MenuButtonAction::Play => {
-          // TODO: get game mode descriptor from GameSession
-          game_control_commands.send(GameControlCommand::NewGame(GameModeDescriptor));
           app_state.set(next_state.0.clone());
         }
       }
