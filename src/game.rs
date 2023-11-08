@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 use fg_base::get_base_game_module;
-use fg_game::{
-  GameControlCommand, GameModeDescriptor, GameSession, ModuleManager, SimulationState,
-};
+use fg_game::{GameControlCommand, GameSession, ModuleManager, SimulationState};
 
 #[derive(Resource)]
 struct GameNextState<T>(T);

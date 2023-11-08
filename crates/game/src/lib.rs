@@ -62,11 +62,30 @@ impl ModuleManager {
       }
     }
   }
+
+  pub fn run_new_game(
+    &self,
+    mode: &GameModeDescriptor,
+    session: &mut GameSession,
+    commands: &mut Commands,
+  ) {
+    for module in self.modules.iter() {
+      match module {
+        GameModuleDescriptor::Native(native_mod) => {
+          (native_mod.on_new_game)(mode, session, commands);
+        }
+        _ => {
+          unimplemented!()
+        }
+      }
+    }
+  }
 }
 
 #[derive(Default, Resource)]
 pub struct GameSession {
   modes: Vec<GameModeDescriptor>,
+  races: Vec<RaceDescriptor>,
 }
 
 impl GameSession {
@@ -91,13 +110,20 @@ pub enum GameModuleDescriptor {
 #[derive(Clone)]
 pub struct NativeGameModule {
   pub on_init: fn(&mut GameSession) -> (),
+  pub on_new_game: fn(&GameModeDescriptor, &mut GameSession, &mut Commands) -> (),
 }
 
 #[derive(Clone)]
 pub struct ScriptGameModule;
 
 #[derive(Clone, Debug)]
-pub struct GameModeDescriptor;
+pub struct GameModeDescriptor {
+  pub id: u128,
+  pub name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct RaceDescriptor;
 
 #[derive(Debug)]
 pub struct PlayerDescriptor;
@@ -130,9 +156,10 @@ fn process_game_control_commands(
 
         // signal that session is ready
         next_sim_state.set(SimulationState::Ready);
-      },
-      GameControlCommand::NewGame(_mode) => {
-
+      }
+      GameControlCommand::NewGame(mode) => { 
+        mod_mgr.run_new_game(mode, &mut session, &mut commands)
+        next_sim_state.set(SimulationState::Loading);
       },
       _ => {
         unimplemented!()
