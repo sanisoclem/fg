@@ -9,9 +9,14 @@ impl GameEngineExtensions for App {
     self
       .add_state::<SimulationState>()
       .init_resource::<ModuleManager>()
-      .init_resource::<GameSession>()
+      .init_resource::<ModuleRunner>()
       .add_event::<GameControlCommand>()
       .add_systems(Update, process_game_control_commands)
+      .add_systems(OnEnter(SimulationState::Loading), run_mod_startup)
+      .add_systems(
+        Update,
+        run_mod_update.run_if(in_state(SimulationState::Simulating)),
+      )
   }
 }
 
@@ -22,16 +27,15 @@ pub enum SimulationState {
   Ready,
   Loading,
   Simulating,
+  Unloading,
 }
 
 #[derive(Event, Debug)]
 pub enum GameControlCommand {
-  Reset,
-  NewGame(GameModeDescriptor),
-  Pause,
-  Unpause,
-  JoinGame(PlayerDescriptor),
-  LeaveGame(PlayerDescriptor),
+  Initialize,
+  NewGame,
+  // JoinGame(PlayerDescriptor),
+  // LeaveGame(PlayerDescriptor),
 }
 
 #[derive(Default, Resource)]
@@ -49,121 +53,91 @@ impl ModuleManager {
     self.modules.push(module);
     self
   }
-
-  pub fn run_init(&self, session: &mut GameSession) {
-    for module in self.modules.iter() {
-      match module {
-        GameModuleDescriptor::Native(native_mod) => {
-          (native_mod.on_init)(session);
-        }
-        _ => {
-          unimplemented!()
-        }
-      }
-    }
-  }
-
-  pub fn run_new_game(
-    &self,
-    mode: &GameModeDescriptor,
-    session: &mut GameSession,
-    commands: &mut Commands,
-  ) {
-    for module in self.modules.iter() {
-      match module {
-        GameModuleDescriptor::Native(native_mod) => {
-          (native_mod.on_new_game)(mode, session, commands);
-        }
-        _ => {
-          unimplemented!()
-        }
-      }
-    }
-  }
 }
 
 #[derive(Default, Resource)]
-pub struct GameSession {
-  modes: Vec<GameModeDescriptor>,
-  races: Vec<RaceDescriptor>,
+pub struct ModuleRunner {
+  update_systems: Schedule,
+  startup_systems: Schedule,
 }
 
-impl GameSession {
-  pub fn reset(&mut self) {
-    self.modes.clear();
-  }
-  pub fn get_modes(&self) -> &[GameModeDescriptor] {
-    &self.modes
-  }
+impl ModuleRunner {
+  pub fn load(&mut self, mods: &ModuleManager) {
+    let mut startup_sched = Schedule::default();
+    let mut update_sched = Schedule::default();
+    for module in mods.modules.iter() {
+      module.register_systems(&mut startup_sched, &mut update_sched);
+    }
 
-  pub fn add_mode(&mut self, mode: GameModeDescriptor) {
-    self.modes.push(mode);
+    self.update_systems = update_sched;
+    self.startup_systems = startup_sched;
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum GameModuleDescriptor {
   Native(NativeGameModule),
   Script(ScriptGameModule),
 }
 
-#[derive(Clone)]
-pub struct NativeGameModule {
-  pub on_init: fn(&mut GameSession) -> (),
-  pub on_new_game: fn(&GameModeDescriptor, &mut GameSession, &mut Commands) -> (),
+impl GameModuleDescriptor {
+  pub fn register_systems(&self, startup_sched: &mut Schedule, update_sched: &mut Schedule) {
+    if let &GameModuleDescriptor::Native(native_mod) = &self {
+      (native_mod.register_systems)(startup_sched, update_sched);
+    }
+  }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
+pub struct NativeGameModule {
+  pub register_systems: fn(startup_sched: &mut Schedule, update_sched: &mut Schedule) -> (),
+}
+
+#[derive(Clone, PartialEq)]
 pub struct ScriptGameModule;
 
-#[derive(Clone, Debug)]
-pub struct GameModeDescriptor {
-  pub id: u128,
-  pub name: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct RaceDescriptor;
-
-#[derive(Debug)]
-pub struct PlayerDescriptor;
-
-#[derive(Component)]
-pub struct GameSessionComponent;
-
 fn process_game_control_commands(
-  mut commands: Commands,
   mut cmds: EventReader<GameControlCommand>,
-  mut session: ResMut<GameSession>,
   mut next_sim_state: ResMut<NextState<SimulationState>>,
-
-  all_session_entities: Query<Entity, With<GameSessionComponent>>,
+  mut module_runner: ResMut<ModuleRunner>,
+  current_state: Res<State<SimulationState>>,
   mod_mgr: Res<ModuleManager>,
 ) {
-  for cmd in cmds.iter() {
-    match cmd {
-      GameControlCommand::Reset => {
-        // despawn all entities if any
-        for entity in &all_session_entities {
-          commands.entity(entity).despawn_recursive();
-        }
+  for cmd in cmds.read() {
+    match ((*current_state).get(), cmd) {
+      (SimulationState::Disabled, GameControlCommand::Initialize) => {
+        // initialize all modules
+        module_runner.load(&mod_mgr);
 
-        // clear all session dictionaries
-        session.reset();
+        // note: initialization should be fast and only runs in single frame
+        // preferrably, minimal io like registering systems and resources to load later
 
-        // re-initialize all modules
-        mod_mgr.run_init(&mut session);
-
-        // signal that session is ready
+        // signal all modules are ready
         next_sim_state.set(SimulationState::Ready);
       }
-      GameControlCommand::NewGame(mode) => { 
-        mod_mgr.run_new_game(mode, &mut session, &mut commands)
+      (SimulationState::Ready, GameControlCommand::NewGame) => {
+        // todo: implement game modes
+
+        // note: loading will be done hierarchically and in two passes
+        // todo: add a resource where we can register loading tasks
+
+        // signal to all systems to start loading whatever is required for new game
         next_sim_state.set(SimulationState::Loading);
-      },
+      }
       _ => {
         unimplemented!()
       }
     }
   }
+}
+
+fn run_mod_startup(world: &mut World) {
+  let mut runner = world.resource_mut::<ModuleRunner>();
+  // where can I store the schedule? cannot store in world without cloning (but schedule does not clone?)
+  //runner.startup_systems.run(&mut world);
+}
+
+fn run_mod_update(world: &mut World) {
+  let mut runner = world.resource_mut::<ModuleRunner>();
+  //runner.update_systems.run(world);
 }
