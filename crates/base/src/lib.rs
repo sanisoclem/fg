@@ -1,13 +1,19 @@
 use bevy::prelude::*;
-use fg_game::{GameModuleDescriptor, NativeGameModule, SimulationState};
+use fg_game::{GameModuleDescriptor, NativeGameModule};
 
 pub fn get_base_game_module() -> GameModuleDescriptor {
-  GameModuleDescriptor::Native(NativeGameModule { register_systems })
+  GameModuleDescriptor::Native(NativeGameModule {
+    register_startup,
+    register_update,
+  })
 }
 
-fn register_systems(init: &mut Schedule, update: &mut Schedule) {
-  init.add_systems(on_load);
-  update.add_systems(some_system.run_if(in_state(SimulationState::Simulating)));
+fn register_startup(sched: &mut Schedule) {
+  sched.add_systems(on_load);
+}
+
+fn register_update(sched: &mut Schedule) {
+  sched.add_systems(some_system);
 }
 
 pub fn on_load(_commands: Commands) {

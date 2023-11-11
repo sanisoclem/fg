@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use fg_base::get_base_game_module;
-use fg_game::{GameControlCommand, ModuleManager, ModuleRunner, SimulationState};
+use fg_game::{GameControlCommand, ModuleManager, SimulationState};
 
 #[derive(Resource)]
 struct GameNextState<T>(T);
@@ -23,7 +23,7 @@ fn setup_base_game(mut mod_mgr: ResMut<ModuleManager>, mut cmds: EventWriter<Gam
   cmds.send(GameControlCommand::Initialize);
 }
 
-fn start_base_game(session: Res<ModuleRunner>, mut cmds: EventWriter<GameControlCommand>) {
+fn start_base_game(mut cmds: EventWriter<GameControlCommand>) {
   // start the first game mode
   cmds.send(GameControlCommand::NewGame);
 }
