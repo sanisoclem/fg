@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 bevy = { workspace = true }
+fg_game = { path = "../game", version = "0.1.0" }
