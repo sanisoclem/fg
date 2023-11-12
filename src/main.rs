@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy::{asset::ChangeWatcher, prelude::*};
+use bevy::prelude::*;
 use fg_game::GameEngineExtensions;
 use menu::MenuExtensions;
 use splash::SplashExtensions;
@@ -20,10 +20,7 @@ mod splash;
 
 fn main() {
   App::new()
-    .add_plugins(DefaultPlugins.set(AssetPlugin {
-      watch_for_changes: ChangeWatcher::with_delay(Duration::from_millis(200)),
-      ..default()
-    }))
+    .add_plugins(DefaultPlugins)
     .add_state::<AppState>()
     .add_splash_screen(AppState::Splash, AppState::Menu)
     .add_main_menu(AppState::Menu, AppState::Game)

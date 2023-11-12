@@ -1,23 +1,23 @@
 use bevy::prelude::*;
-use fg_game::{GameModeDescriptor, GameModuleDescriptor, GameSession, NativeGameModule};
+use fg_game::{GameModuleDescriptor, NativeGameModule};
 
 pub fn get_base_game_module() -> GameModuleDescriptor {
   GameModuleDescriptor::Native(NativeGameModule {
-    on_init,
-    on_new_game,
+    register_startup,
+    register_update,
   })
 }
 
-pub fn on_init(session: &mut GameSession) {
-  session.add_mode(GameModeDescriptor {
-    id: 0,
-    name: "Test".to_owned(),
-  })
+fn register_startup(sched: &mut Schedule) {
+  sched.add_systems(on_load);
 }
 
-pub fn on_new_game(
-  _mode: &GameModeDescriptor,
-  _session: &mut GameSession,
-  _commands: &mut Commands,
-) {
+fn register_update(sched: &mut Schedule) {
+  sched.add_systems(some_system);
 }
+
+pub fn on_load(_commands: Commands) {
+  // todo: register loading tasks, load assets, spawn entities
+}
+
+pub fn some_system(_qry: Query<Entity>) {}

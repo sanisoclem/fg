@@ -1,5 +1,13 @@
 use bevy::prelude::*;
 
+mod components;
+mod mods;
+mod state;
+
+pub use components::*;
+pub use mods::*;
+pub use state::*;
+
 pub trait GameEngineExtensions {
   fn add_game_engine(&mut self) -> &mut Self;
 }
@@ -7,163 +15,18 @@ pub trait GameEngineExtensions {
 impl GameEngineExtensions for App {
   fn add_game_engine(&mut self) -> &mut Self {
     self
+      .init_resource::<ModManager>()
       .add_state::<SimulationState>()
-      .init_resource::<ModuleManager>()
-      .init_resource::<GameSession>()
       .add_event::<GameControlCommand>()
       .add_systems(Update, process_game_control_commands)
-  }
-}
-
-#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-pub enum SimulationState {
-  #[default]
-  Disabled,
-  Ready,
-  Loading,
-  Simulating,
-}
-
-#[derive(Event, Debug)]
-pub enum GameControlCommand {
-  Reset,
-  NewGame(GameModeDescriptor),
-  Pause,
-  Unpause,
-  JoinGame(PlayerDescriptor),
-  LeaveGame(PlayerDescriptor),
-}
-
-#[derive(Default, Resource)]
-pub struct ModuleManager {
-  modules: Vec<GameModuleDescriptor>,
-}
-
-impl ModuleManager {
-  pub fn clear(&mut self) -> &mut Self {
-    self.modules.clear();
-    self
-  }
-
-  pub fn register(&mut self, module: GameModuleDescriptor) -> &mut Self {
-    self.modules.push(module);
-    self
-  }
-
-  pub fn run_init(&self, session: &mut GameSession) {
-    for module in self.modules.iter() {
-      match module {
-        GameModuleDescriptor::Native(native_mod) => {
-          (native_mod.on_init)(session);
-        }
-        _ => {
-          unimplemented!()
-        }
-      }
-    }
-  }
-
-  pub fn run_new_game(
-    &self,
-    mode: &GameModeDescriptor,
-    session: &mut GameSession,
-    commands: &mut Commands,
-  ) {
-    for module in self.modules.iter() {
-      match module {
-        GameModuleDescriptor::Native(native_mod) => {
-          (native_mod.on_new_game)(mode, session, commands);
-        }
-        _ => {
-          unimplemented!()
-        }
-      }
-    }
-  }
-}
-
-#[derive(Default, Resource)]
-pub struct GameSession {
-  modes: Vec<GameModeDescriptor>,
-  races: Vec<RaceDescriptor>,
-}
-
-impl GameSession {
-  pub fn reset(&mut self) {
-    self.modes.clear();
-  }
-  pub fn get_modes(&self) -> &[GameModeDescriptor] {
-    &self.modes
-  }
-
-  pub fn add_mode(&mut self, mode: GameModeDescriptor) {
-    self.modes.push(mode);
-  }
-}
-
-#[derive(Clone)]
-pub enum GameModuleDescriptor {
-  Native(NativeGameModule),
-  Script(ScriptGameModule),
-}
-
-#[derive(Clone)]
-pub struct NativeGameModule {
-  pub on_init: fn(&mut GameSession) -> (),
-  pub on_new_game: fn(&GameModeDescriptor, &mut GameSession, &mut Commands) -> (),
-}
-
-#[derive(Clone)]
-pub struct ScriptGameModule;
-
-#[derive(Clone, Debug)]
-pub struct GameModeDescriptor {
-  pub id: u128,
-  pub name: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct RaceDescriptor;
-
-#[derive(Debug)]
-pub struct PlayerDescriptor;
-
-#[derive(Component)]
-pub struct GameSessionComponent;
-
-fn process_game_control_commands(
-  mut commands: Commands,
-  mut cmds: EventReader<GameControlCommand>,
-  mut session: ResMut<GameSession>,
-  mut next_sim_state: ResMut<NextState<SimulationState>>,
-
-  all_session_entities: Query<Entity, With<GameSessionComponent>>,
-  mod_mgr: Res<ModuleManager>,
-) {
-  for cmd in cmds.iter() {
-    match cmd {
-      GameControlCommand::Reset => {
-        // despawn all entities if any
-        for entity in &all_session_entities {
-          commands.entity(entity).despawn_recursive();
-        }
-
-        // clear all session dictionaries
-        session.reset();
-
-        // re-initialize all modules
-        mod_mgr.run_init(&mut session);
-
-        // signal that session is ready
-        next_sim_state.set(SimulationState::Ready);
-      }
-      GameControlCommand::NewGame(mode) => { 
-        mod_mgr.run_new_game(mode, &mut session, &mut commands)
-        next_sim_state.set(SimulationState::Loading);
-      },
-      _ => {
-        unimplemented!()
-      }
-    }
+      .add_systems(OnEnter(SimulationState::Ready), register_mods)
+      .add_systems(
+        OnEnter(SimulationState::Loading),
+        (run_mod_startup, wait_until_loading_complete).chain(),
+      )
+      .add_systems(
+        Update,
+        run_mod_update.run_if(in_state(SimulationState::Simulating)),
+      )
   }
 }
