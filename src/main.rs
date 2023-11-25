@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use fg_game::GameEngineExtensions;
+use game::GameExtensions;
 use menu::MenuExtensions;
 use splash::SplashExtensions;
 
@@ -24,6 +25,6 @@ fn main() {
     .add_state::<AppState>()
     .add_splash_screen(AppState::Splash, AppState::Menu)
     .add_main_menu(AppState::Menu, AppState::Game)
-    .add_game_engine()
+    .add_game(AppState::Game)
     .run();
 }

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 mod components;
 mod mods;
 mod state;
+pub mod player;
 
 pub use components::*;
 pub use mods::*;
@@ -19,7 +20,7 @@ impl GameEngineExtensions for App {
       .add_state::<SimulationState>()
       .add_event::<GameControlCommand>()
       .add_systems(Update, process_game_control_commands)
-      .add_systems(OnEnter(SimulationState::Ready), register_mods)
+      .add_systems(OnExit(SimulationState::Disabled), register_mods)
       .add_systems(
         OnEnter(SimulationState::Loading),
         (run_mod_startup, wait_until_loading_complete).chain(),
