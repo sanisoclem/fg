@@ -4,6 +4,8 @@ mod components;
 mod mods;
 mod state;
 pub mod player;
+pub mod blueprints;
+pub mod build_area;
 
 pub use components::*;
 pub use mods::*;
@@ -17,6 +19,7 @@ impl GameEngineExtensions for App {
   fn add_game_engine(&mut self) -> &mut Self {
     self
       .init_resource::<ModManager>()
+      .init_resource::<blueprints::BlueprintRegistry>()
       .add_state::<SimulationState>()
       .add_event::<GameControlCommand>()
       .add_systems(Update, process_game_control_commands)
