@@ -57,7 +57,7 @@ fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
       });
       parent.spawn(
         TextBundle::from_section(
-          "Loading...",
+          "Splashing...",
           TextStyle {
             font_size: 80.0,
             color: Color::rgb(0.9, 0.9, 0.9),
